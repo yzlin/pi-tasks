@@ -172,6 +172,8 @@ Retrieve output from a background task process.
 
 Both task IDs and agent IDs (including partial prefixes) are accepted — agent IDs are resolved via the internal `agentTaskMap`.
 
+For background subagents launched with `TaskExecute`, completion does **not** auto-wake the model. Callers must explicitly call `TaskOutput` (blocking or non-blocking) to poll progress and collect final results.
+
 For a subagent task that has finished, the tool returns the agent's stored result (or its error) under the status line, so joining a task and reading what it produced is one call. Doing so also [consumes the result](#joining-a-subagent).
 
 ### `TaskStop`
@@ -193,7 +195,7 @@ Execute one or more tasks as background subagents. Requires [@tintinweb/pi-subag
 | `model` | string | Model override (e.g., `"sonnet"`, `"haiku"`) |
 | `max_turns` | number | Max turns per agent |
 
-Tasks must be `pending`, have `agentType` set, and all `blockedBy` dependencies `completed`. Each task spawns as an independent background subagent.
+Tasks must be `pending`, have `agentType` set, and all `blockedBy` dependencies `completed`. Each task spawns as an independent background subagent. `TaskExecute` only starts background work; subagent completion does **not** auto-wake the model, so callers must explicitly call `TaskOutput` to poll progress or fetch results.
 
 With **auto-cascade** enabled (via `/tasks` → Settings), completed tasks automatically trigger execution of their unblocked dependents — flowing through the DAG like a build system. Each cascaded agent receives its prerequisites' stored results in the prompt, so it can build directly on what came before without re-fetching.
 

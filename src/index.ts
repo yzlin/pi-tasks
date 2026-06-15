@@ -304,7 +304,7 @@ export default function (pi: ExtensionAPI) {
     const task = store.get(taskId);
     if (!task) return;
 
-    store.update(task.id, { status: "completed", metadata: { ...task.metadata, result } });
+    store.update(task.id, { status: "completed", metadata: { ...task.metadata, result: result ?? null, lastError: null } });
     widget.setActiveTask(task.id, false);
 
     // Auto-cascade: find unblocked dependents with agentType
@@ -326,7 +326,7 @@ export default function (pi: ExtensionAPI) {
             ...(cascadeConfig.model ? { model: cascadeConfig.model } : {}),
           });
           agentTaskMap.set(agentId, next.id);
-          store.update(next.id, { owner: agentId, metadata: { ...next.metadata, agentId } });
+          store.update(next.id, { owner: agentId, metadata: { ...next.metadata, agentId, lastError: null, result: null } });
           widget.setActiveTask(next.id);
         } catch (err: any) {
           store.update(next.id, { status: "pending", metadata: { ...next.metadata, result: null, lastError: err.message } });
@@ -970,6 +970,7 @@ Set up task dependencies:
 - Returns the task output along with status information
 - Use block=true (default) to wait for task completion
 - Use block=false for non-blocking check of current status
+- Background subagent completion does not auto-wake the model; callers must explicitly poll/fetch results with TaskOutput
 - Task IDs can be found using the /tasks command
 - Works with all task types: background shells, async agents, and remote sessions`,
     parameters: Type.Object({
@@ -990,9 +991,16 @@ Set up task dependencies:
         // Support both task IDs and agent IDs (resolve agent ID → task ID)
         let resolvedId = task_id;
         if (!store.get(resolvedId)) {
-          // Check if this is an agent ID mapped to a task
+          // Check active agents first, then completed/failed agent IDs persisted in task metadata.
           for (const [agentId, taskId] of agentTaskMap) {
             if (agentId === task_id || agentId.startsWith(task_id)) { resolvedId = taskId; break; }
+          }
+          if (!store.get(resolvedId)) {
+            const matchedTask = store.list().find(t => {
+              const agentId = t.metadata?.agentId;
+              return typeof agentId === "string" && (agentId === task_id || agentId.startsWith(task_id));
+            });
+            if (matchedTask) resolvedId = matchedTask.id;
           }
         }
         const task = store.get(resolvedId);
@@ -1117,6 +1125,7 @@ Set up task dependencies:
 - To start execution of tasks that have \`agentType\` set (created via TaskCreate with agentType parameter)
 - Tasks must be \`pending\` with all blockedBy dependencies \`completed\`
 - Each task runs as an independent background subagent
+- Background subagent completion does not auto-wake the model; explicitly call TaskOutput to poll progress or fetch results
 
 ## Parameters
 
@@ -1126,6 +1135,7 @@ Set up task dependencies:
 - **max_turns**: Maximum turns per agent`,
     promptGuidelines: [
       "Never use the Agent tool for tasks launched via TaskExecute — agents are already running.",
+      "TaskExecute starts background work only; completion does not auto-wake you, so explicitly call TaskOutput to poll progress or collect final results.",
     ],
     parameters: Type.Object({
       task_ids: Type.Array(Type.String(), { description: "Task IDs to execute as subagents" }),
@@ -1182,7 +1192,7 @@ Set up task dependencies:
             ...(params.model ? { model: params.model } : {}),
           });
           agentTaskMap.set(agentId, taskId);
-          store.update(taskId, { owner: agentId, metadata: { ...task.metadata, agentId } });
+          store.update(taskId, { owner: agentId, metadata: { ...task.metadata, agentId, lastError: null, result: null } });
           widget.setActiveTask(taskId);
           launched.push(`#${taskId} → agent ${agentId}`);
         } catch (err: any) {
@@ -1205,7 +1215,7 @@ Set up task dependencies:
       if (launched.length > 0) {
         lines.push(
           `Launched ${launched.length} agent(s):\n${launched.join("\n")}\n` +
-          `Use TaskOutput to check progress. Do not spawn additional agents for these tasks.`
+          `Use TaskOutput to poll progress and collect final results; completion does not auto-wake the model. Do not spawn additional agents for these tasks.`
         );
       }
       if (results.length > 0) lines.push(`Skipped:\n${results.join("\n")}`);

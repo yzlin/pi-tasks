@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **TaskExecute/TaskOutput polling contract documented** — background subagent completion does not auto-wake the model. Callers must explicitly use `TaskOutput` to poll progress and collect final results after `TaskExecute` starts subagents.
+
 ## [0.9.0] - 2026-08-24
 
 ### Added

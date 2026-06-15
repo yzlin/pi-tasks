@@ -315,6 +315,14 @@ describe("TaskExecute", () => {
     expect(mock.tools.has("TaskExecute")).toBe(true);
   });
 
+  it("documents explicit TaskOutput polling for background subagents", () => {
+    expect(mock.tools.get("TaskExecute").description).toContain("completion does not auto-wake the model");
+    expect(mock.tools.get("TaskExecute").promptGuidelines).toContain(
+      "TaskExecute starts background work only; completion does not auto-wake you, so explicitly call TaskOutput to poll progress or collect final results.",
+    );
+    expect(mock.tools.get("TaskOutput").description).toContain("callers must explicitly poll/fetch results with TaskOutput");
+  });
+
   it("returns error when subagent extension is not loaded", async () => {
     // Re-init without mock to simulate missing extension
     const freshMock = mockPi();
@@ -384,12 +392,70 @@ describe("TaskExecute", () => {
     const result = await mock.executeTool("TaskExecute", { task_ids: ["1"] });
     expect(result.content[0].text).toContain("Launched 1 agent");
     expect(result.content[0].text).toContain("#1 → agent agent-1");
+    expect(result.content[0].text).toContain("Use TaskOutput to poll progress and collect final results");
+    expect(result.content[0].text).toContain("completion does not auto-wake the model");
 
     // Verify the RPC responder was called
     expect(rpc.spawned).toHaveLength(1);
     expect(rpc.spawned[0].type).toBe("general-purpose");
     expect(rpc.spawned[0].prompt).toContain("Run the test suite");
     expect(rpc.spawned[0].options.isBackground).toBe(true);
+  });
+
+  it("returns completed subagent results from TaskOutput", async () => {
+    await mock.executeTool("TaskCreate", {
+      subject: "Summarize findings",
+      description: "Find the important bits",
+      agentType: "general-purpose",
+    });
+    await mock.executeTool("TaskExecute", { task_ids: ["1"] });
+
+    mock.emitEvent("subagents:completed", { id: "agent-1", result: "Important result" });
+
+    const output = await mock.executeTool("TaskOutput", { task_id: "1", block: false });
+    expect(output.content[0].text).toContain("Task #1 [completed] — subagent agent-1");
+    expect(output.content[0].text).toContain("Important result");
+
+    const outputByAgentId = await mock.executeTool("TaskOutput", { task_id: "agent-1", block: false });
+    expect(outputByAgentId.content[0].text).toContain("Task #1 [completed] — subagent agent-1");
+    expect(outputByAgentId.content[0].text).toContain("Important result");
+  });
+
+  it("returns failed subagent errors from TaskOutput", async () => {
+    await mock.executeTool("TaskCreate", {
+      subject: "Summarize findings",
+      description: "Find the important bits",
+      agentType: "general-purpose",
+    });
+    await mock.executeTool("TaskExecute", { task_ids: ["1"] });
+
+    mock.emitEvent("subagents:failed", { id: "agent-1", status: "failed", error: "Agent crashed" });
+
+    const output = await mock.executeTool("TaskOutput", { task_id: "1", block: false });
+    expect(output.content[0].text).toContain("Task #1 [pending] — subagent agent-1");
+    expect(output.content[0].text).toContain("Error: Agent crashed");
+
+    const outputByAgentId = await mock.executeTool("TaskOutput", { task_id: "agent-1", block: false });
+    expect(outputByAgentId.content[0].text).toContain("Task #1 [pending] — subagent agent-1");
+    expect(outputByAgentId.content[0].text).toContain("Error: Agent crashed");
+  });
+
+  it("clears stale subagent errors when retry succeeds", async () => {
+    await mock.executeTool("TaskCreate", {
+      subject: "Summarize findings",
+      description: "Find the important bits",
+      agentType: "general-purpose",
+    });
+    await mock.executeTool("TaskExecute", { task_ids: ["1"] });
+    mock.emitEvent("subagents:failed", { id: "agent-1", status: "failed", error: "Agent crashed" });
+
+    await mock.executeTool("TaskExecute", { task_ids: ["1"] });
+    mock.emitEvent("subagents:completed", { id: "agent-2", result: "Recovered result" });
+
+    const output = await mock.executeTool("TaskOutput", { task_id: "agent-2", block: false });
+    expect(output.content[0].text).toContain("Task #1 [completed] — subagent agent-2");
+    expect(output.content[0].text).toContain("Recovered result");
+    expect(output.content[0].text).not.toContain("Agent crashed");
   });
 
   it("passes additional_context and max_turns to spawned agents", async () => {
