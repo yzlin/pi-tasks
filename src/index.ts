@@ -967,7 +967,6 @@ Set up task dependencies:
 - Returns the task output along with status information
 - Use block=true (default) to wait for task completion
 - Use block=false for non-blocking check of current status
-- Background subagent completion does not auto-wake the model; callers must explicitly poll/fetch results with TaskOutput
 - Task IDs can be found using the /tasks command
 - Works with all task types: background shells, async agents, and remote sessions`,
     parameters: Type.Object({
@@ -1122,7 +1121,6 @@ Set up task dependencies:
 - To start execution of tasks that have \`agentType\` set (created via TaskCreate with agentType parameter)
 - Tasks must be \`pending\` with all blockedBy dependencies \`completed\`
 - Each task runs as an independent background subagent
-- Background subagent completion does not auto-wake the model; explicitly call TaskOutput to poll progress or fetch results
 
 ## Parameters
 
@@ -1132,7 +1130,6 @@ Set up task dependencies:
 - **max_turns**: Maximum turns per agent`,
     promptGuidelines: [
       "Never use the Agent tool for tasks launched via TaskExecute — agents are already running.",
-      "TaskExecute starts background work only; completion does not auto-wake you, so explicitly call TaskOutput to poll progress or collect final results.",
     ],
     parameters: Type.Object({
       task_ids: Type.Array(Type.String(), { description: "Task IDs to execute as subagents" }),
@@ -1212,7 +1209,7 @@ Set up task dependencies:
       if (launched.length > 0) {
         lines.push(
           `Launched ${launched.length} agent(s):\n${launched.join("\n")}\n` +
-          `Use TaskOutput to poll progress and collect final results; completion does not auto-wake the model. Do not spawn additional agents for these tasks.`
+          `Use TaskOutput to check progress. Do not spawn additional agents for these tasks.`
         );
       }
       if (results.length > 0) lines.push(`Skipped:\n${results.join("\n")}`);

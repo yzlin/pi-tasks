@@ -8,8 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- **TaskExecute/TaskOutput polling contract documented** — background subagent completion does not auto-wake the model. Callers must explicitly use `TaskOutput` to poll progress and collect final results after `TaskExecute` starts subagents.
 - **TaskUpdate completion guidance is request-scoped** — required checks and request-caused failures block completion, while evidenced unrelated baseline failures are disclosed separately unless repo-wide health is in scope. This is guidance only, not runtime completion enforcement.
+
+### Fixed
+- **`TaskOutput` resolves settled subagent IDs.** Agent IDs and their partial prefixes continue to work after the in-memory agent map removes a completed or failed run.
+- **Subagent retries clear stale outcome metadata.** A new run no longer carries the previous run's result or error.
 
 ## [0.9.0] - 2026-08-24
 
