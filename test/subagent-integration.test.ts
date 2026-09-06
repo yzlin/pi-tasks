@@ -781,6 +781,40 @@ describe("Standalone operation (no subagents extension)", () => {
     expect(result.content[0].text).toContain("in_progress");
   });
 
+  it("TaskUpdate completion guidance requires requested scope and required validation", () => {
+    const description = mock.tools.get("TaskUpdate").description;
+    expect(description).toContain(
+      "Mark a task as completed when its requested scope is fully implemented and all required validation succeeds",
+    );
+    expect(description).toContain(
+      "Request-caused failures, incomplete implementation, missing required files or dependencies, and failed or unavailable required verification remain blockers",
+    );
+  });
+
+  it("TaskUpdate completion guidance separates unrelated baseline failures", () => {
+    const description = mock.tools.get("TaskUpdate").description;
+    expect(description).toContain(
+      "Evidenced pre-existing baseline failures outside the requested scope do not block completion; record and disclose them separately",
+    );
+    expect(description).toContain(
+      "Do not automatically create repair tasks or dependencies for unrelated baseline failures unless the user includes them in scope",
+    );
+  });
+
+  it("TaskUpdate completion guidance scopes repo-wide health failures", () => {
+    const description = mock.tools.get("TaskUpdate").description;
+    expect(description).toContain(
+      "When the user requests repo-wide health, corresponding baseline failures are in scope and block completion",
+    );
+  });
+
+  it("TaskUpdate completion guidance omits unscoped blocker rules", () => {
+    const description = mock.tools.get("TaskUpdate").description;
+    expect(description).not.toContain("Tests are failing");
+    expect(description).not.toContain("unresolved errors");
+    expect(description).not.toContain("When blocked, create");
+  });
+
   it("TaskExecute gracefully refuses without subagents", async () => {
     await mock.executeTool("TaskCreate", {
       subject: "Agent task",

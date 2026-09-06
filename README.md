@@ -12,7 +12,7 @@ https://github.com/user-attachments/assets/1d0ee87a-e0a5-4bfa-a9b9-2f9144cb905b
 
 ## Features
 
-- **7 LLM-callable tools** — `TaskCreate`, `TaskList`, `TaskGet`, `TaskUpdate`, `TaskOutput`, `TaskStop`, `TaskExecute` — matching Claude Code's exact tool specs and descriptions
+- **7 LLM-callable tools** — `TaskCreate`, `TaskList`, `TaskGet`, `TaskUpdate`, `TaskOutput`, `TaskStop`, `TaskExecute` — compatible with Claude Code's tool names, calling conventions, and schemas, with guidance intentionally scoped for pi-tasks
 - **Persistent widget** — live task list above the editor with `✔`/`◼`/`◻` status marks, task numbers (`#1`, `#2`, …), strikethrough for completed tasks, star spinner (`✳✽`) for active tasks with elapsed time and token counts. Every glyph is [configurable](CUSTOMIZING.md#task-glyphs)
 - **System-reminder injection** — periodic `<system-reminder>` nudges injected into the upcoming LLM request (via the `context` hook, transient and never persisted) when task tools haven't been used recently, or when a task is left stuck `in_progress` after a text-only turn. Shaped after Claude Code's todo reminders — an empty-list nudge or a JSON echo of the current list (capped at 10 tasks)
 - **Prompt guidelines** — workflow contract encoded in tool descriptions, nudging the LLM at the point of tool use
@@ -159,6 +159,16 @@ Update task fields, status, metadata, and dependencies.
 Setting `status: "deleted"` permanently removes the task.
 
 Dependencies are bidirectional: `addBlocks: ["3"]` on task 1 also adds `blockedBy: ["1"]` to task 3.
+
+The `TaskUpdate` guidance scopes completion to the user's request and its required verification:
+
+- Mark a task completed only when its requested scope is fully implemented and all required validation succeeds.
+- Keep it `in_progress` for request-caused failures, incomplete implementation, missing required files or dependencies, or failed or unavailable required checks.
+- Evidenced pre-existing baseline failures outside the requested scope do not block completion; disclose them separately.
+- Do not automatically create repair tasks or dependencies for unrelated baseline failures unless the user includes them in scope.
+- If the user requests repo-wide health, corresponding baseline failures are in scope and block completion.
+
+This is tool-description guidance for the model, not runtime validation or automatic completion logic.
 
 ### `TaskOutput`
 

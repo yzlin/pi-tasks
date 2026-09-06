@@ -850,14 +850,11 @@ Returns full task details:
 - IMPORTANT: Always mark your assigned tasks as resolved when you finish them
 - After resolving, call TaskList to find your next task
 
-- ONLY mark a task as completed when you have FULLY accomplished it
-- If you encounter errors, blockers, or cannot finish, keep the task as in_progress
-- When blocked, create a new task describing what needs to be resolved
-- Never mark a task as completed if:
-  - Tests are failing
-  - Implementation is partial
-  - You encountered unresolved errors
-  - You couldn't find necessary files or dependencies
+- Mark a task as completed when its requested scope is fully implemented and all required validation succeeds
+- Request-caused failures, incomplete implementation, missing required files or dependencies, and failed or unavailable required verification remain blockers; keep the task as in_progress
+- Evidenced pre-existing baseline failures outside the requested scope do not block completion; record and disclose them separately
+- Do not automatically create repair tasks or dependencies for unrelated baseline failures unless the user includes them in scope
+- When the user requests repo-wide health, corresponding baseline failures are in scope and block completion
 
 **Delete tasks:**
 - When a task is no longer relevant or was created in error
